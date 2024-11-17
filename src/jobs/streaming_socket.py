@@ -16,32 +16,34 @@ def send_data_over_socket(file_path, host='localhost', port=9999, chunk_size=2):
 
     last_sent_index = 0 # line that was already sent
     
-    conn, addr = s.accept()
-    print(f"Connection from {addr}")
-    try:
-        with open(file_path, 'r') as file:
-            # skip the lines that were already sent
-            for _ in range(last_sent_index):
-                next(file)
+    while True:
+        conn, addr = s.accept()
+        print(f"Connection from {addr}")
 
-            records = []
-            for line in file:
-                records.append(json.loads(line))
-                if(len(records)) == chunk_size:
-                    chunk = pd.DataFrame(records)
-                    print(chunk)
-                    for record in chunk.to_dict(orient='records'):
-                        serialize_data = json.dumps(record, default=handle_date).encode('utf-8')
-                        conn.send(serialize_data + b'\n') # if the new line is not included, the socket will wait forever hoping that more data to come
-                        time.sleep(5)
-                        last_sent_index += 1
+        try:
+            with open(file_path, 'r') as file:
+                # skip the lines that were already sent
+                for _ in range(last_sent_index):
+                    next(file)
 
-                    records = []
-    except (BrokenPipeError, ConnectionResetError):
-        print("Client disconnected.")
-    finally:
-        conn.close()
-        print("Connection closed")
+                records = []
+                for line in file:
+                    records.append(json.loads(line))
+                    if(len(records)) == chunk_size:
+                        chunk = pd.DataFrame(records)
+                        print(chunk)
+                        for record in chunk.to_dict(orient='records'):
+                            serialize_data = json.dumps(record, default=handle_date).encode('utf-8')
+                            conn.send(serialize_data + b'\n') # if the new line is not included, the socket will wait forever hoping that more data to come
+                            time.sleep(5)
+                            last_sent_index += 1
+
+                        records = []
+        except (BrokenPipeError, ConnectionResetError):
+            print("Client disconnected.")
+        finally:
+            conn.close()
+            print("Connection closed")
 
 if __name__ == "__main__":
     send_data_over_socket("datasets/yelp_academic_dataset_review.json")
